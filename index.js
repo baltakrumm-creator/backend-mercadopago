@@ -12,6 +12,7 @@ const port = 3000;
 
 // ✅ CONFIGURAR MIDDLEWARES
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // ✅ CONEXIÓN A MYSQL DE HOSTINGER
@@ -32,7 +33,7 @@ db.connect((err) => {
 
 // ✅ CONFIGURAR MERCADO PAGO
 const client = new MercadoPagoConfig({
-    accessToken: process.env.MP_ACCESS_TOKEN || "APP_USR-7435253279921115-102312-f0de8a272d0cec82e0c3612425a4f714-2941561632",
+    accessToken: process.env.MP_ACCESS_TOKEN
 });
 
 // 🧩 Ruta de prueba
@@ -59,11 +60,11 @@ app.post("/create_preference", async (req, res) => {
                 ],
                 auto_return: "approved",
                 back_urls: {
-                    success: "https://tu-dominio.com/success",
-                    failure: "https://tu-dominio.com/failure",
-                    pending: "https://tu-dominio.com/pending",
+                    success: "https://kwsites.site/success",
+                    failure: "https://kwsites.site/failure",
+                    pending: "https://kwsites.site/pending",
                 },
-                notification_url: "https://tu-dominio.com/webhook", // 🔔 WEBHOOK
+                notification_url: "https://backend-mercadopago-e4he.onrender.com/webhook", // 🔔 WEBHOOK
             },
         });
 
