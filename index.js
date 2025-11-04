@@ -26,20 +26,13 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
+// Test de conexión
 db.getConnection((err, connection) => {
     if (err) {
         console.error("❌ Error al conectar a MySQL:", err);
     } else {
         console.log("✅ Conexión a MySQL establecida correctamente");
         connection.release();
-    }
-});
-
-db.connect((err) => {
-    if (err) {
-        console.error("❌ Error al conectar a MySQL:", err);
-    } else {
-        console.log("✅ Conectado a la base de datos MySQL");
     }
 });
 
@@ -82,10 +75,10 @@ app.post("/create_preference", async (req, res) => {
 
         // ✅ Guardar el pedido temporalmente en la base de datos
         const sql = `
-      INSERT INTO pedidos_temporales 
-      (preference_id, nombre, apellido, email, direccion, provincia, ciudad, codigo_postal, celular, tipo_envio, empresa_envio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+            INSERT INTO pedidos_temporales 
+            (preference_id, nombre, apellido, email, direccion, provincia, ciudad, codigo_postal, celular, tipo_envio, empresa_envio)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
         const values = [
             result.id,
             formData.nombre,
@@ -101,8 +94,11 @@ app.post("/create_preference", async (req, res) => {
         ];
 
         db.query(sql, values, (err) => {
-            if (err) console.error("❌ Error al guardar pedido temporal:", err);
-            else console.log("🟢 Pedido temporal guardado correctamente");
+            if (err) {
+                console.error("❌ Error al guardar pedido temporal:", err);
+            } else {
+                console.log("🟢 Pedido temporal guardado correctamente");
+            }
         });
 
         res.json({ id: result.id });
@@ -130,16 +126,19 @@ app.post("/webhook", async (req, res) => {
 
                 // Buscar el pedido temporal y moverlo a la tabla definitiva
                 db.query("SELECT * FROM pedidos_temporales WHERE preference_id = ?", [data.order.id], (err, results) => {
-                    if (err) return console.error("❌ Error al buscar pedido temporal:", err);
+                    if (err) {
+                        console.error("❌ Error al buscar pedido temporal:", err);
+                        return;
+                    }
 
                     if (results.length > 0) {
                         const pedido = results[0];
 
                         const sql = `
-              INSERT INTO pedidos_confirmados 
-              (nombre, apellido, email, direccion, provincia, ciudad, codigo_postal, celular, tipo_envio, empresa_envio, monto_total, estado_pago)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+                            INSERT INTO pedidos_confirmados 
+                            (nombre, apellido, email, direccion, provincia, ciudad, codigo_postal, celular, tipo_envio, empresa_envio, monto_total, estado_pago)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `;
                         const values = [
                             pedido.nombre,
                             pedido.apellido,
@@ -156,11 +155,14 @@ app.post("/webhook", async (req, res) => {
                         ];
 
                         db.query(sql, values, (err) => {
-                            if (err) return console.error("❌ Error al guardar pedido confirmado:", err);
-                            console.log("✅ Pedido confirmado guardado correctamente");
+                            if (err) {
+                                console.error("❌ Error al guardar pedido confirmado:", err);
+                            } else {
+                                console.log("✅ Pedido confirmado guardado correctamente");
 
-                            // Borrar pedido temporal
-                            db.query("DELETE FROM pedidos_temporales WHERE preference_id = ?", [data.order.id]);
+                                // Borrar pedido temporal
+                                db.query("DELETE FROM pedidos_temporales WHERE preference_id = ?", [data.order.id]);
+                            }
                         });
                     }
                 });
