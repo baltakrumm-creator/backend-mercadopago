@@ -108,11 +108,7 @@ app.post("/create_preference", async (req, res) => {
         });
 
         const prefId = result?.response?.id ?? result?.id ?? result?.body?.id;
-        const initPoint =
-            result?.response?.init_point ??
-            result?.sandbox_init_point ??
-            result?.init_point ??
-            result?.body?.init_point;
+        const initPoint = result?.response?.init_point || result?.init_point || result?.body?.init_point;
 
         if (!prefId) {
             console.error("❌ No se pudo obtener el id de la preferencia:", result);
