@@ -82,7 +82,7 @@ app.post("/create_preference", async (req, res) => {
                     {
                         title,
                         quantity: Number(quantity),
-                        unit_price: numericPrice,
+                        unit_price: 100,
                         currency_id: "ARS",
                     },
                 ],
