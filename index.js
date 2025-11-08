@@ -1,4 +1,4 @@
-// index.js - Backend completo con envío de mail
+// index.js - Backend completo con CORS configurado correctamente
 import express from "express";
 import cors from "cors";
 import mysql from "mysql2";
@@ -11,7 +11,20 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
-app.use(cors());
+// ------------------------
+// ✅ CORS CONFIG CORRECTA
+// ------------------------
+app.use(
+    cors({
+        origin: [
+            "https://kwsites.site", // tu dominio de producción
+            "http://localhost:5173", // para desarrollo local
+        ],
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
+);
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -47,8 +60,8 @@ const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN 
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: process.env.EMAIL_USER, // tu mail
-        pass: process.env.EMAIL_PASS, // contraseña o app password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
     },
 });
 
@@ -64,7 +77,8 @@ app.post("/create_preference", async (req, res) => {
     try {
         const { title, quantity = 1, price, formData, products } = req.body;
 
-        if (!title || price == null || !formData) return res.status(400).json({ error: "Datos incompletos" });
+        if (!title || price == null || !formData)
+            return res.status(400).json({ error: "Datos incompletos" });
 
         const numericPrice = Number(price);
         if (isNaN(numericPrice)) return res.status(400).json({ error: "Precio inválido" });
@@ -82,7 +96,7 @@ app.post("/create_preference", async (req, res) => {
                     {
                         title,
                         quantity: Number(quantity),
-                        unit_price: 100,
+                        unit_price: numericPrice,
                         currency_id: "ARS",
                     },
                 ],
@@ -132,7 +146,7 @@ app.post("/create_preference", async (req, res) => {
                 (external_reference, name_product, price, img, quantity, size, color)
                 VALUES ?
             `;
-            const valuesProductos = products.map(p => [
+            const valuesProductos = products.map((p) => [
                 externalReference,
                 p.nameProduct,
                 p.price,
@@ -146,8 +160,11 @@ app.post("/create_preference", async (req, res) => {
             });
         }
 
-        return res.json({ init_point: initPoint, preference_id: prefId, external_reference: externalReference });
-
+        return res.json({
+            init_point: initPoint,
+            preference_id: prefId,
+            external_reference: externalReference,
+        });
     } catch (error) {
         console.error("❌ Error al crear la preferencia:", error);
         return res.status(500).json({ error: error.message });
@@ -179,7 +196,6 @@ app.post("/webhook", async (req, res) => {
 
                 const pedido = results[0];
 
-                // Guardar pedido confirmado
                 const sqlInsert = `
                     INSERT INTO pedidos_confirmados
                     (nombre, apellido, email, documento, direccion, provincia, ciudad, codigo_postal, celular, tipo_envio, empresa_envio, monto_total, estado_pago)
@@ -205,7 +221,6 @@ app.post("/webhook", async (req, res) => {
                     if (err2) return console.error(err2);
                     const pedidoId = resultInsert.insertId;
 
-                    // Productos confirmados
                     db.query("SELECT * FROM productos_temporales WHERE external_reference = ?", [data.external_reference], (err4, productos) => {
                         if (err4) return console.error(err4);
 
@@ -215,7 +230,7 @@ app.post("/webhook", async (req, res) => {
                                 (pedido_id, name_product, price, img, quantity, size, color)
                                 VALUES ?
                             `;
-                            const valuesProdInsert = productos.map(p => [
+                            const valuesProdInsert = productos.map((p) => [
                                 pedidoId,
                                 p.name_product,
                                 p.price,
@@ -230,7 +245,6 @@ app.post("/webhook", async (req, res) => {
                                 else {
                                     console.log("🟢 Productos confirmados guardados correctamente.");
 
-                                    // --- Enviar mail ---
                                     const mailOptions = {
                                         from: `"Mi Tienda" <${process.env.EMAIL_USER}>`,
                                         to: pedido.email,
@@ -239,7 +253,12 @@ app.post("/webhook", async (req, res) => {
                                             <h1>Gracias por tu compra, ${pedido.nombre}!</h1>
                                             <p>Tu pedido ha sido confirmado. Aquí están los detalles:</p>
                                             <ul>
-                                                ${productos.map(p => `<li>${p.name_product} x ${p.quantity} - $${p.price}</li>`).join('')}
+                                                ${productos
+                                                .map(
+                                                    (p) =>
+                                                        `<li>${p.name_product} x ${p.quantity} - $${p.price}</li>`
+                                                )
+                                                .join("")}
                                             </ul>
                                             <p>Monto total: $${data.transaction_amount ?? data.total_paid_amount}</p>
                                             <p>Dirección de envío: ${pedido.direccion}, ${pedido.ciudad}, ${pedido.provincia}</p>
@@ -247,14 +266,15 @@ app.post("/webhook", async (req, res) => {
                                     };
 
                                     transporter.sendMail(mailOptions, (errMail, info) => {
-                                        if (errMail) console.error("❌ Error al enviar mail:", errMail);
-                                        else console.log("📧 Mail enviado correctamente:", info.response);
+                                        if (errMail)
+                                            console.error("❌ Error al enviar mail:", errMail);
+                                        else
+                                            console.log("📧 Mail enviado correctamente:", info.response);
                                     });
                                 }
                             });
                         }
 
-                        // Borrar temporales
                         db.query("DELETE FROM pedidos_temporales WHERE external_reference = ?", [data.external_reference]);
                         db.query("DELETE FROM productos_temporales WHERE external_reference = ?", [data.external_reference]);
                     });
